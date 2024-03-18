@@ -101,7 +101,7 @@ async function createMainWindow() {
     width: 750,
     height: 480,
     // alwaysOnTop: true,
-    resizable: false,
+    resizable: true,
     maximizable: false,
     minimizable: false,
     transparent: true,
@@ -395,14 +395,29 @@ async function createMainWindow() {
       // app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
       // app.exit(0)
     })
+    let pingOllamaSender;
+
     ipcMain.on('ping-ollama', async (event) => {
-      console.log('[settings]-logger -> None')
-      setInterval(async () => {
-        const isOllamaRunning = await isUrlRunning('http://localhost:11434');
-        if (isOllamaRunning) event.sender.send("ollama-reply", "ollama-ready")
-        else event.sender.send("ollama-reply", "installing-ollama")
+      console.log('[settings]-logger -> None');
+      pingOllamaSender = event.sender;
+    
+      const intervalId = setInterval(async () => {
+        if (pingOllamaSender && !pingOllamaSender.isDestroyed()) {
+          const isOllamaRunning = await isUrlRunning('http://localhost:11434');
+          if (isOllamaRunning) {
+            pingOllamaSender.send("ollama-reply", "ollama-ready");
+          } else {
+            pingOllamaSender.send("ollama-reply", "installing-ollama");
+          }
+        } else {
+          clearInterval(intervalId);
+        }
       }, 500);
-    })
+    
+      event.sender.on('destroyed', () => {
+        clearInterval(intervalId);
+      });
+    });
     ipcMain.on("logger", (event, object) => {
       console.log("[settings]-logger ->", object)
     })
