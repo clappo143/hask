@@ -1,34 +1,48 @@
 import { useEffect, useState } from "react";
 import React from "react";
 import Prism from 'prismjs';
+import DOMPurify from 'dompurify';
+import showdown from 'showdown';
 
 
 const CodeText = ({ children }) => {
     const [status, setStatus] = useState("copy");
     const [lang, setLang] = useState("");
     const [code, setCode] = useState("");
+    const converter = new showdown.Converter();
+
     useEffect(() => {
-        Prism.highlightAll(); 
         if (children) {
-            setLang(children.split("\n")[0])
-            setCode(children.split("\n").slice(1, -1).join("\n"))
-            // console.log("children", children.split("\n").slice(1, -1).join("\n"));
+            setCode(children)
+            // window.ipc.send("logger", ["code", children])
         }
-        Prism.highlightAll();
+        return () => {
+            Prism.highlightAll();
+        }
     }, [children]);
     
     const copied = () => {
         navigator.clipboard.writeText(code).then(function() {
             setStatus("copied");
-            setTimeout(() => {
-                setStatus("copy");
-            }, 1000); 
+            setTimeout(() => { setStatus("copy"); }, 1000); 
         }, function(err) {
             setStatus("error");
-            setTimeout(() => {
-                setStatus("copy");
-            }, 1000); 
+            setTimeout(() => { setStatus("copy"); }, 1000); 
         });
+    }
+
+    const purifyCode = (line) => {
+        converter.setOption('tables', true);
+        const html = converter.makeHtml(line.replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
+        const sanitizedHtml = DOMPurify.sanitize(html, {
+            ADD_CLASSES: {
+                code: 'language-js',
+                pre: 'language-js',
+            },
+            ALLOWED_ATTR: ['start'],
+
+        });
+        return sanitizedHtml
     }
     
     return (
@@ -44,11 +58,10 @@ const CodeText = ({ children }) => {
                 </div>
                 
             </div>
-            <pre>
-                <code className="language-js language-regex" >
-                    { code }
-                </code>
-            </pre>
+            <div 
+                className="px-4 py-2 "
+                dangerouslySetInnerHTML={{ __html: purifyCode(code) }}
+            />
         </div>
     );
 }

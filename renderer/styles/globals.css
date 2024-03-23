@@ -15,6 +15,27 @@
         background: #2d2d2d00;
     }
 
+    table {
+        /* border none */
+        border-radius: 10px;
+        padding: 20px;
+        width: 100%;
+        border-radius: 15px;
+        /* background-color: #1e1e1e; */
+      }
+      th {
+        padding: 5px;
+        /* border: 1px solid #424242; */
+        font-weight: bold;
+      }
+      td {
+        padding: 5px;
+        border-bottom: 1px solid #424242;
+        /* text-align: center; */
+        white-space: nowrap;
+      }
+      
+
     pre[class*="language-"],
     code[class*="language-"] {
         color: #d4d4d4;
@@ -285,12 +306,6 @@
         z-index: 1;
     }
 
-    .line-highlight.line-highlight {
-        background: #f7ebc6;
-        box-shadow: inset 5px 0 0 #f7d87c;
-        z-index: 0;
-    }
-
     /**********************************************************
     * Markdown styles 
     */
@@ -330,6 +345,12 @@
         padding-left: 32px;
         margin: 10px 0;
         list-style-type: disc;
+    }
+    .markdown-body ul ul {
+        /* List unordored nested */
+        padding-left: 32px;
+        margin: 10px 0;
+        list-style-type: square;
     }
     .markdown-body ol {
         /* List ordored styles */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState , useRef} from "react";
 import { parseLink } from "../pages/api/methods";
 import CodeText from "../components/codetext";
 import { get_code_blocks } from "../pages/api/methods";
@@ -8,70 +8,134 @@ import { v4 as uid } from 'uuid';
 import DOMPurify from 'dompurify';
 import showdown from 'showdown';
 
-const converter = new showdown.Converter();
 
-const Answer = React.memo(({ answer, searching }) => {
+const Answer = ({ answer, searching }) => {
     const [formattedLines, setFormattedLines] = useState([]);
     const [status, setStatus] = useState("copy");
     const { theme } = useTheme();
+    const converter = new showdown.Converter();
+    const [tableFlag, setTableFlag] = useState(false);
+    var tableData = [];
+    const [tableContent, setTableContent] = useState(null);
+
+
     const purify = (line) => {
+        if (line.trim().startsWith('+')) {
+            if (line.match(/^\t\+\s*/)) {
+                const content = line.replace(/^\t\+\s*/, '');
+                const sublist = `<ul><ul><li>${converter.makeHtml(content)}</li></ul></ul>`;
+                return DOMPurify.sanitize(sublist);
+            }
+        }
+        if (line.startsWith('    -')) {
+            if (line.match(/^ {4}-\s*/)) {
+                const content = line.replace(/^ {4}-\s*/, '');
+                const sublist = `<ul><ul><li>${converter.makeHtml(content)}</li></ul></ul>`;
+                return DOMPurify.sanitize(sublist);
+            }
+        }
+
+        if (line.startsWith("|")) {
+            setTableFlag(true);
+            if (line.match(/^\|.*\|.*\|.*$/) ) {
+                const content = line.split("|").map((item) => item.trim());
+                const table = content.map((item, index) => {
+                    if (item === "") return;
+                    if (index === 0) {
+                        return `${converter.makeHtml(item)}`;
+                    } else {
+                        if (item.includes("---")) {
+                            return ;
+                        }
+                        return `<td>${converter.makeHtml(item)}</td>`;
+                    }
+                }).join('');
+                // tableData.push(tableData.length === 0 ? `<th>${table}</th>` : `<tr>${table}</tr>`);
+                tableData.push(`<tr>${table}</tr>`);
+                return tableData.join("");
+            } else {
+                return DOMPurify.sanitize(converter.makeHtml(line));
+            }
+        }
+        
         const html = converter.makeHtml(line);
-        const sanitizedHtml = DOMPurify.sanitize(html, {
-            ALLOWED_ATTR: ['start'] // Allow start attribute for ordered lists
-        });
-        return sanitizedHtml;
+        return DOMPurify.sanitize(html, { ALLOWED_ATTR: ['start'] });
     }
+    const purifyCode = (line) => {
+        const html = converter.makeHtml(line);
+        return DOMPurify.sanitize(html, {  ADD_CLASSES: { code: 'language-js' } });
+    }
+
     useEffect(() => {
         if (answer) {
-            const lines = (answer).split('\n');
-            const linesWithLinksParsed = lines.map(line => parseLink(line));
-            const linesWithCodeBlocks = get_code_blocks(linesWithLinksParsed);
-            
-            // Convert markdown to HTML and sanitize
-            const htmlLines = linesWithCodeBlocks.map(line => {
-                if (line.includes("```")) {
-                    return line;
-                } else {
-                    return purify(line);
-                    // return line
-                }
-            });
-            setFormattedLines(htmlLines);
+            let lines = (answer).split("\n");
+            const linesWithLinksParsed = lines.map(line => parseLink(line)); // to be adjusted, after the glitch is fixed
+            const rg = /.*\|.*\|.*$/ // rg for checking if the line is a table
+            const linesWithCodeBlocks = !rg.test(linesWithLinksParsed) ? linesWithLinksParsed : get_code_blocks(linesWithLinksParsed);
+
+            if (answer === " " && searching) { setFormattedLines([]); setTableContent(null); } 
+            else { setFormattedLines(linesWithCodeBlocks.map(processLine)); }
         }
     }, [answer]);
 
     const copied = () => {
         navigator.clipboard.writeText(answer).then(function() {
             setStatus("copied");
-            setTimeout(() => {
-                setStatus("copy");
-            }, 1000);
+            setTimeout(() => { setStatus("copy"); }, 1000);
         }, function(err) {
             setStatus("error");
-            setTimeout(() => {
-                setStatus("copy");
-            }, 1000);
+            setTimeout(() => { setStatus("copy"); }, 1000);
         });
     }
+    // offload the processLine function from the useeffect()
+    const processLine = (line) => {
+        if (line === "") return <div key={uid()} className="h-2 bg-transparent" />;
 
+        if (line.includes("```")) {
+            return <CodeText key={uid()} >{purifyCode(line)}</CodeText>;
+        } else {
+            const purified = purify(line)
+
+            if (purified.includes("<tr>")) {
+                window.ipc.send("logger", ["inside td", purified])
+                setTableContent(purified); 
+                setTableFlag(true)
+                return null; 
+            }
+
+            return (
+                <div
+                    key={uid()}
+                    className="markdown-body text-sm"
+                    dangerouslySetInnerHTML={{ __html: purify(line) }}
+                />
+            );
+        }
+    };
 
   return (
     <div className="relative">
-        {formattedLines.map((line, index) => (
-            <div key={uid()}>
-            {
-                line.includes("```") ? // .slice(3, -3)
-                <CodeText key={uid()} searching={searching} >{line}</CodeText>
-                :
-                <div 
-                    key={uid()}
-                    className="markdown-body text-sm"
-                    dangerouslySetInnerHTML={{ __html: line }}
-                />
-            }
+        
+        
+
+        {tableContent && (
+                <div className="placeholder">Table is below</div>
+        )}
+
+        { formattedLines}
+
+        {tableContent && (
+            <div className="mt-3 w-full mb-1 border-b border-b-1 border-gray-400 duration-700 dark:border-[#424242]"></div>
+        )}
+        {tableContent && (
+            <div className="bg-[#373737] p-2 rounded-md mt-2 relative overflow-auto  duration-700 dark:border-[#414141] dark:bg-[#1e1e1e] ">
+                <table className="rounded text-sm text-gray-400 dark:text-current ">
+                    <tbody dangerouslySetInnerHTML={{ __html: tableContent }} />
+                </table>
             </div>
-            ))
-        }
+        )}
+
+        
 
         <div className={" absolute w-full -bottom-7 ml-3 flex items-center justify-end transition-all duration-500  " + (answer === "" ? "scale-0" : "scale-100") }>
             <div onClick={copied} className={`flex py-[1px] px-2 bg-[#2f2f2f3a] border border-[#8181814b] rounded dark:bg-[#87858965]`}> 
@@ -85,6 +149,6 @@ const Answer = React.memo(({ answer, searching }) => {
         </div>
     </div>
   );
-})
+}
 
 export default Answer;

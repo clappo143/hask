@@ -1,4 +1,4 @@
-import { app, globalShortcut, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
+import { app, globalShortcut, BrowserWindow, Menu, ipcMain, dialog, shell, Tray, nativeImage } from 'electron';
 import serve from 'electron-serve';
 import { createWindow } from './helpers';
 import axios from 'axios';
@@ -22,6 +22,7 @@ if (isProd) {
 } else {
   app.setPath('userData', `${app.getPath('userData')} (development)`);
 }
+let tray = null;
 function getParentDir(_file) {
   if (isProd) return path.dirname(path.dirname(path.dirname(__dirname)))
   else return path.dirname(__dirname)
@@ -275,9 +276,13 @@ async function createMainWindow() {
         if (chunk.choices[0].delta?.content) {
           bufferData += chunk.choices[0].delta.content
           event.sender.send('search-result', bufferData);
-        } else {
-          event.sender.send('search-end');
         }
+        if (chunk.choices[0].finish_reason === "stop") {
+          event.sender.send('search-end');
+          console.log('search-result', chunk.choices[0])
+          break
+        }
+        
       }
       console.log('search-end')
     } catch (error) {
@@ -364,7 +369,6 @@ async function createMainWindow() {
   })
 
   ///////////////////////////////
-
   // --------> 
   // mainWindow.toggleDevTools();
   // 
@@ -385,13 +389,40 @@ async function createMainWindow() {
 
 (async () => {
   await app.whenReady();
-  console.log("---------------------->", fs.existsSync(postInstallFlagPath))
+  // console.log("---------------------->", fs.existsSync(postInstallFlagPath))
+  const img = nativeImage.createFromPath(path.join(getParentDir(), isProd ? 'Resources/top_bar/hsk-16.png' : 'resources/top_bar/hsk-16.png')) // { size: { width: 16, height: 16 } }
+  tray = new Tray(img);
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Open Hask', type: "normal", accelerator: 'Option+X', click: async () => {
+      mainWindow.show();
+    }},
+    { type: 'separator'},
+    { label: 'How to use', type: "normal", click: async () => {
+      shell.openExternal('https://hask.ai'); }
+    },
+    { type: 'separator'},
+    { label: 'Join our Discord community', type: 'normal', click: async () => {
+      shell.openExternal('https://discord.gg/cSf3RpQdws'); }
+    },
+    { label: 'Support us', type: 'normal', click: async () => {
+      shell.openExternal('https://git.new/hask'); }
+    },
+    { type: 'separator'},
+    { label: 'Settings', type: 'normal', click: async () => {
+        if (!settingsWindow || settingsWindow.isDestroyed()) {
+          settingsWindow = await createSettingsWindow();
+        } else { settingsWindow.focus(); } 
+      }, accelerator: 'Command+,'
+    },
+    { label: 'Quit', type: 'normal', role: 'quit'}
+  ])
+  tray.setContextMenu(contextMenu)
   if(!fs.existsSync(postInstallFlagPath)) {
 
     settingsWindow = await createSettingsWindow();
 
     const scriptPath = path.join(getParentDir(), 'scripts/init.sh');
-    exec(`sh ${scriptPath} > /dev/null 2>&1`, (error, stdout, stderr) => {
+    exec(`sh ${scriptPath} > ~/hask.log 2>&1`, (error, stdout, stderr) => {
       if (error) { console.log(error); return; }
     });
 
@@ -423,16 +454,21 @@ async function createMainWindow() {
   } else {
     mainWindow = await createMainWindow();
     const scriptPath = resolveHome('~/.hask/ollama.sh');
-    exec(`sh ${scriptPath} > /dev/null 2>&1`, (error, stdout, stderr) => {
+    exec(`sh ${scriptPath} > ~/hask.log 2>&1`, (error, stdout, stderr) => {
       if (error) { console.log(error); return; }
     });
   }
   ipcMain.on('relaunch-hask',  async (event) => {
-    // relaunch main window or create new one
     if (mainWindow) {
+      // quit the app and relaunch it
       mainWindow.close();
+      settingsWindow.close();
+      app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
+      app.exit(0)
     }
     mainWindow = await createMainWindow();
+    settingsWindow = await createSettingsWindow();
+    settingsWindow.show();
   })
   
   const template = [
@@ -465,12 +501,10 @@ async function createMainWindow() {
           click: async () => {
             if (!settingsWindow || settingsWindow.isDestroyed()) {
               settingsWindow = await createSettingsWindow();
-              // settingsWindow.toggleDevTools();
             } else {
                 // If the settings window is already open, bring it to focus
                 settingsWindow.focus();
             }
-            // settingsWindow.toggleDevTools()
           }
         }
       ]
