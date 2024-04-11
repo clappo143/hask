@@ -149,7 +149,7 @@ async function createMainWindow() {
   ipcMain.on("logger", (event, object) => {
     console.log('logger ->', object)
   })
-  ipcMain.on("search-pplx", async (event, args) => {
+  ipcMain.on("search-perplexity", async (event, args) => {
     event.sender.send('search-result', " ");
     const { query, model, token, systemPrompt, temperature, maxTokens } = args
     const options = {
@@ -162,7 +162,7 @@ async function createMainWindow() {
       },
       responseType: 'stream',
       data: {
-        model: model ? model : 'pplx-7b-online',
+        model: model ? model : 'sonar-medium-online',
         messages: [
           { role: 'system', content: systemPrompt ? systemPrompt : 'Be precise and concise.' },
           { role: 'user', content: query }
@@ -175,6 +175,8 @@ async function createMainWindow() {
     };
     let bufferData = ''; //
 
+    let result;  // Declare result outside the 'data' callback
+
     try {
       const response = await axios.request(options)
       const start = Date.now();
@@ -186,10 +188,10 @@ async function createMainWindow() {
         buffer += chunk.toString('utf-8');
         let blocks = get_blocks(buffer);
         if (blocks.length > 0) {
-          const result = get_content_block(blocks[blocks.length - 1])
-          tokens = result[1]
+          result = get_content_block(blocks[blocks.length - 1]); // Assign result within the 'data' callback
+          tokens = result[1];
           event.sender.send('search-result', result[0]);
-          buffer = ""; // Clear the buffer after handling the message
+          buffer = "";
         }
       });
 
@@ -199,6 +201,9 @@ async function createMainWindow() {
         console.log('search time', tokens, time, (tokens / time))
         event.sender.send('search-time', (tokens / time).toFixed(0), time);
         event.sender.send('search-end');
+        event.sender.send('search-time', (tokens / time).toFixed(0), time);
+        event.sender.send('search-end', result ? result[0] : ''); // Send result or empty string if undefined
+
       });
 
       stream.on('error', error => {
@@ -394,14 +399,14 @@ async function createMainWindow() {
     },
     // Add more menu items as needed
   ];
-  
+
   const contextMenu = Menu.buildFromTemplate(contextMenuTemplate);
-  
+
   mainWindow.webContents.on('context-menu', (event, params) => {
     event.preventDefault();
     contextMenu.popup(mainWindow, params.x, params.y);
   });
-  
+
   mainWindow.setAlwaysOnTop(true, "normal");
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.setFullScreenable(false);

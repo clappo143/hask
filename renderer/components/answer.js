@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { parseLink } from "../pages/api/methods";
 import CodeText from "../components/codetext";
 import { get_code_blocks } from "../pages/api/methods";
 import { useTheme } from "next-themes";
@@ -21,15 +20,14 @@ const Answer = ({ answer, searching }) => {
 
     const purify = (line) => {
         if (typeof line === 'string') {
-          const parsedLine = parseLink(line);
-          const html = converter.makeHtml(parsedLine);
-          return DOMPurify.sanitize(html, { ALLOWED_ATTR: ['start', 'target', 'href'] });
+            const html = converter.makeHtml(line);
+            return DOMPurify.sanitize(html, { ALLOWED_ATTR: ['start', 'target', 'href'] });
         }
         return null;
-      };
+    };
 
     useEffect(() => {
-        if (answer) {
+        if (answer && typeof answer === 'string') {
             const result = get_code_blocks(answer.split("\n"));
             const newFormattedLines = result.map((item, index) => {
                 if (typeof item === 'object' && item.language) {
@@ -41,8 +39,10 @@ const Answer = ({ answer, searching }) => {
                 return null;
             });
             setFormattedLines(newFormattedLines.filter(line => line !== null));
-        }
-    }, [answer]);
+        } else {
+            console.error('Invalid answer prop. Expected a string, but got:', answer);
+          }
+        }, [answer]);
 
     const openLinkInNewTab = (event, url) => {
         event.preventDefault();
@@ -205,23 +205,32 @@ const Answer = ({ answer, searching }) => {
         URL.revokeObjectURL(url);
     };
 
-    useEffect(() => {
-        const handleContextMenuCommand = (event, command) => {
-            if (command === 'copy') {
-                // Handle the "Copy" command
-                copied();
-            } else if (command === 'save') {
-                // Handle the "Save" command
-                saveAnswer();
-            }
-        };
+    const handleContextMenuCommandRef = useRef(null);
+    const listenerAddedRef = useRef(false);
 
-        window.ipc.on('context-menu-command', handleContextMenuCommand);
+    handleContextMenuCommandRef.current = (event, command) => {
+        if (command === 'copy') {
+            // Handle the "Copy" command
+            copied();
+        } else if (command === 'save') {
+            // Handle the "Save" command
+            saveAnswer();
+        }
+    };
+
+    useEffect(() => {
+        if (!listenerAddedRef.current) {
+            window.ipc.on('context-menu-command', handleContextMenuCommandRef.current);
+            listenerAddedRef.current = true;
+        }
 
         return () => {
-            window.ipc.removeListener('context-menu-command', handleContextMenuCommand);
+            if (listenerAddedRef.current) {
+                window.ipc.removeListener('context-menu-command', handleContextMenuCommandRef.current);
+                listenerAddedRef.current = false;
+            }
         };
-    }, [answer]);
+    }, []);
 
     return (
         <div className="relative">

@@ -80,12 +80,16 @@ export default function Search() {
     // Event listener functions
     const handleSearchResult = (event, result) => {
         console.log("Received search result:", result);
-        setAnswer(result);
+        try {
+            const parsedResult = JSON.parse(result);
+            setAnswer(parsedResult);
+        } catch (error) {
+            setAnswer(result);
+        }
         if (scrollerRef.current) {
             scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
         }
     };
-
 
     const handleSearchEnd = () => { setSearching(false); };
     const handleSearchError = (error) => { console.error(error); setSearching(false); };
@@ -230,9 +234,9 @@ export default function Search() {
             setModel(localStorage.getItem("pplx-model") || perplexityModelList[perplexityId]);
         }
         setToken(localStorage.getItem("pplx-token"));
-        setSystemPrompt(localStorage.getItem("pplx-system-prompt") || "Be precise and concise.");
-        setTemperature(localStorage.getItem("pplx-temperature") || "0.7");
-        setMaxTokens(localStorage.getItem("pplx-max-tokens") || "512");
+        setSystemPrompt(localStorage.getItem("perplexity-system-prompt") || "Be precise and concise.");
+        setTemperature(localStorage.getItem("perplexity-temperature") || "0.7");
+        setMaxTokens(localStorage.getItem("perplexity-max-tokens") || "512");
     }
     const configureGroq = (skip_model = false) => {
         setModelList(groqModelList);
@@ -315,7 +319,7 @@ export default function Search() {
         setSearching(true);
         if (provider === "perplexity") {
             window.ipc.send(
-                "search-pplx",
+                "search-perplexity",
                 {
                     query,
                     model,
@@ -420,7 +424,7 @@ export default function Search() {
         setModelSelectionExpanded(false);
         if (provider === "perplexity") {
             configurePerplexity(true);
-            localStorage.setItem("pplx-model", _model);
+            localStorage.setItem("perplexity-model", _model);
             setperplexityId(perplexityModelList.indexOf(_model) || 0);
 
         } else if (provider === "groq") {

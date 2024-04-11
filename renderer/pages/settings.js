@@ -89,9 +89,9 @@ export default function Settings() {
         let list_key_value = [];
         if (provider === "perplexity") {
             list_key_value = [
-                ["provider", provider], ["pplx-token", token], ["pplx-model", model],
-                [`pplx-system-prompt`, systemPrompt], ["pplx-temperature", temperature],
-                ["pplx-max-tokens", maxTokens]
+                ["provider", provider], ["perplexity-token", token], ["perplexity-model", model],
+                [`perplexity-system-prompt`, systemPrompt], ["perplexity-temperature", temperature],
+                ["perplexity-max-tokens", maxTokens]
             ];
         } else if (provider === "groq") {
             list_key_value = [
@@ -160,12 +160,12 @@ export default function Settings() {
         }
     }
     const configurePerplexity = () => {
-        setToken(localStorage.getItem("pplx-token") || "");
-        setModel(localStorage.getItem("pplx-model") || perplexityModelList[0]); // default model for the first time configuration
+        setToken(localStorage.getItem("perplexity-token") || "");
+        setModel(localStorage.getItem("perplexity-model") || perplexityModelList[0]); // default model for the first time configuration
         setModels(perplexityModelList);
-        setSystemPrompt(localStorage.getItem("pplx-system-prompt") || "Answer the query after carefully parsing the search results to identify relevant information. Only make definitive statements if concretely supported by the information at hand. Be comprehensive while avoiding overly descriptive language. Employ bullet points and other **formatting stylisations** for clarity. Use British English spelling and the metric system. Ensure responses are aligned with the Current date.");
-        setTemperature(localStorage.getItem("pplx-temperature") || temperature);
-        setMaxTokens(localStorage.getItem("pplx-max-tokens") || maxTokens);
+        setSystemPrompt(localStorage.getItem("perplexity-system-prompt") || "Answer the query after carefully parsing the search results to identify relevant information. Only make definitive statements if concretely supported by the information at hand. Be comprehensive while avoiding overly descriptive language. Employ bullet points and other **formatting stylisations** for clarity. Use British English spelling and the metric system. Ensure responses are aligned with the Current date.");
+        setTemperature(localStorage.getItem("perplexity-temperature") || temperature);
+        setMaxTokens(localStorage.getItem("perplexity-max-tokens") || maxTokens);
     }
     const configureGroq = () => {
         setToken(localStorage.getItem("groq-token") || "");
