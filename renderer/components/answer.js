@@ -159,69 +159,21 @@ const Answer = ({ answer, searching }) => {
         });
     }
 
-    const processLine = (line, index, array) => {
-        // Check if the current line starts a code block
-        if (line.startsWith("```")) {
-            setIsCodeBlock(!isCodeBlock);
+    const processLine = (line) => {
+        if (line === "") return <div key={uid()} className="h-2 bg-transparent" />;
 
-            // If ending a code block, send the accumulated lines to CodeText
-            if (!isCodeBlock) {
-                const completeCodeBlock = codeBlockContent.join("\n") + "\n" + line;
-                setCodeBlockContent([]);
-                return <CodeText key={uuidv4()}>{completeCodeBlock}</CodeText>;
-            }
-        } else if (isCodeBlock) {
-            // If currently in a code block, accumulate the content
-            setCodeBlockContent([...codeBlockContent, line]);
-
-            // If this is the last line and we're still in a code block, close it off
-            if (index === lines.length - 1) {
-                setIsCodeBlock(false);
-                const completeCodeBlock = codeBlockContent.join("\n");
-                setCodeBlockContent([]);
-                return <CodeText key={uuidv4()}>{completeCodeBlock}</CodeText>;
-            }
-
-            // Don't return anything yet as we are accumulating lines for the code block
-            return null;
+        if (line.includes("```")) {
+            return <CodeText key={uid()} >{line}</CodeText>;
         } else {
-            // Regular line processing
-            const purified = purify(line);
-            return purified ? <ParsedText key={uuidv4()} text={purified} /> : null;
+            const purified = purify(line)
+
+            if (purified === null) {
+                return null;
+            }
+
+            return <ParsedText key={uid()} text={purified} />;
         }
     };
-
-
-    const saveAnswer = () => {
-        const blob = new Blob([answer], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'answer.txt';
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    useEffect(() => {
-        const handleContextMenuCommand = (event, command) => {
-            if (command === 'copy') {
-                // Handle the "Copy" command
-                copied();
-            } else if (command === 'save') {
-                // Handle the "Save" command
-                saveAnswer();
-            }
-        };
-
-        window.ipc.on('context-menu-command', handleContextMenuCommand);
-
-        return () => {
-            window.ipc.removeListener('context-menu-command', handleContextMenuCommand);
-        };
-    }, [answer]);
 
     return (
         <div className="relative">
@@ -250,6 +202,7 @@ const Answer = ({ answer, searching }) => {
             <div className="webview-container" ref={webviewContainerRef} style={{ width: '100%', height: '100vh', display: iframeVisible ? 'block' : 'none' }}></div>
         </div>
     );
-};
+
+}
 
 export default Answer;
